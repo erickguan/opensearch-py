@@ -49,12 +49,12 @@ class SnapshotClient(NamespacedClient):
     @query_params("master_timeout")
     def delete(self, repository, snapshot, params=None, headers=None):
         """
-        Deletes one or more snapshots.
+        Deletes a snapshot.
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/master/modules-snapshots.html>`_
 
         :arg repository: A repository name
-        :arg snapshot: A comma-separated list of snapshot names
+        :arg snapshot: A snapshot name
         :arg master_timeout: Explicit operation timeout for connection
             to master node
         """
@@ -69,7 +69,7 @@ class SnapshotClient(NamespacedClient):
             headers=headers,
         )
 
-    @query_params("ignore_unavailable", "index_details", "master_timeout", "verbose")
+    @query_params("ignore_unavailable", "master_timeout", "verbose")
     def get(self, repository, snapshot, params=None, headers=None):
         """
         Returns information about a snapshot.
@@ -81,8 +81,6 @@ class SnapshotClient(NamespacedClient):
         :arg ignore_unavailable: Whether to ignore unavailable
             snapshots, defaults to false which means a SnapshotMissingException is
             thrown
-        :arg index_details: Whether to include details of each index in
-            the snapshot, if those details are available. Defaults to false.
         :arg master_timeout: Explicit operation timeout for connection
             to master node
         :arg verbose: Whether to show verbose snapshot info or only show

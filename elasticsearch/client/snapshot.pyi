@@ -66,7 +66,6 @@ class SnapshotClient(NamespacedClient):
         snapshot: Any,
         *,
         ignore_unavailable: Optional[Any] = ...,
-        index_details: Optional[Any] = ...,
         master_timeout: Optional[Any] = ...,
         verbose: Optional[Any] = ...,
         pretty: Optional[bool] = ...,

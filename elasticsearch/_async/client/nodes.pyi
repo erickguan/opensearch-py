@@ -112,7 +112,6 @@ class NodesClient(NamespacedClient):
         fields: Optional[Any] = ...,
         groups: Optional[Any] = ...,
         include_segment_file_sizes: Optional[Any] = ...,
-        include_unloaded_segments: Optional[Any] = ...,
         level: Optional[Any] = ...,
         timeout: Optional[Any] = ...,
         types: Optional[Any] = ...,

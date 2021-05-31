@@ -354,29 +354,29 @@ def download_artifact(version):
 def read_modules(version):
     modules = {}
 
-    with download_artifact(version) as path:
-        for f in sorted(os.listdir(path)):
-            name, ext = f.rsplit(".", 1)
+    path = Path(__file__).parent / "../../OpenSearch/rest-api-spec/src/main/resources/rest-api-spec/api/"
+    for f in sorted(os.listdir(path)):
+        name, ext = f.rsplit(".", 1)
 
-            if ext != "json" or name == "_common":
-                continue
+        if ext != "json" or name == "_common":
+            continue
 
-            with open(path / f) as api_def:
-                api = json.load(api_def)[name]
+        with open(path / f) as api_def:
+            api = json.load(api_def)[name]
 
-            namespace = "__init__"
-            if "." in name:
-                namespace, name = name.rsplit(".", 1)
+        namespace = "__init__"
+        if "." in name:
+            namespace, name = name.rsplit(".", 1)
 
-            # The data_frame API has been changed to transform.
-            if namespace == "data_frame_transform_deprecated":
-                continue
+        # The data_frame API has been changed to transform.
+        if namespace == "data_frame_transform_deprecated":
+            continue
 
-            if namespace not in modules:
-                modules[namespace] = Module(namespace)
+        if namespace not in modules:
+            modules[namespace] = Module(namespace)
 
-            modules[namespace].add(API(namespace, name, api))
-            modules[namespace].pyi.add(API(namespace, name, api, is_pyi=True))
+        modules[namespace].add(API(namespace, name, api))
+        modules[namespace].pyi.add(API(namespace, name, api, is_pyi=True))
 
     return modules
 

@@ -354,7 +354,9 @@ class AsyncElasticsearch(object):
         "version_type",
         "wait_for_active_shards",
     )
-    async def index(self, index, body, id=None, params=None, headers=None):
+    async def index(
+        self, index, body, doc_type=None, id=None, params=None, headers=None
+    ):
         """
         Creates or updates a document in an index.
 
@@ -362,6 +364,7 @@ class AsyncElasticsearch(object):
 
         :arg index: The name of the index
         :arg body: The document
+        :arg doc_type: The type of the document
         :arg id: Document ID
         :arg if_primary_term: only perform the index operation if the
             last operation that has changed the document has the specified primary
@@ -498,7 +501,9 @@ class AsyncElasticsearch(object):
         "routing",
         "terminate_after",
     )
-    async def count(self, body=None, index=None, params=None, headers=None):
+    async def count(
+        self, body=None, index=None, doc_type=None, params=None, headers=None
+    ):
         """
         Returns number of documents matching a query.
 
@@ -507,6 +512,8 @@ class AsyncElasticsearch(object):
         :arg body: A query to restrict the results specified with the
             Query DSL (optional)
         :arg index: A comma-separated list of indices to restrict the
+            results
+        :arg doc_type: A comma-separated list of types to restrict the
             results
         :arg allow_no_indices: Whether to ignore if a wildcard indices
             expression resolves into no concrete indices. (This includes `_all`
@@ -538,7 +545,7 @@ class AsyncElasticsearch(object):
         """
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_count"),
+            _make_path(index, doc_type, "_count"),
             params=params,
             headers=headers,
             body=body,
@@ -577,7 +584,7 @@ class AsyncElasticsearch(object):
         :arg timeout: Explicit operation timeout
         :arg version: Explicit version number for concurrency control
         :arg version_type: Specific version type  Valid choices:
-            internal, external, external_gte
+            internal, external, external_gte, force
         :arg wait_for_active_shards: Sets the number of shard copies
             that must be active before proceeding with the delete operation.
             Defaults to 1, meaning the primary shard only. Set to `all` for all
@@ -620,6 +627,7 @@ class AsyncElasticsearch(object):
         "scroll_size",
         "search_timeout",
         "search_type",
+        "size",
         "slices",
         "sort",
         "stats",
@@ -629,7 +637,9 @@ class AsyncElasticsearch(object):
         "wait_for_active_shards",
         "wait_for_completion",
     )
-    async def delete_by_query(self, index, body, params=None, headers=None):
+    async def delete_by_query(
+        self, index, body, doc_type=None, params=None, headers=None
+    ):
         """
         Deletes documents matching the provided query.
 
@@ -638,6 +648,8 @@ class AsyncElasticsearch(object):
         :arg index: A comma-separated list of index names to search; use
             `_all` or empty string to perform the operation on all indices
         :arg body: The search definition using the Query DSL
+        :arg doc_type: A comma-separated list of document types to
+            search; leave empty to perform the operation on all types
         :arg _source: True or false to return the _source field or not,
             or a list of fields to return
         :arg _source_excludes: A list of fields to exclude from the
@@ -669,7 +681,7 @@ class AsyncElasticsearch(object):
         :arg preference: Specify the node or shard the operation should
             be performed on (default: random)
         :arg q: Query in the Lucene query string syntax
-        :arg refresh: Should the affected indexes be refreshed?
+        :arg refresh: Should the effected indexes be refreshed?
         :arg request_cache: Specify if request cache should be used for
             this request or not, defaults to index level setting
         :arg requests_per_second: The throttle for this request in sub-
@@ -683,6 +695,7 @@ class AsyncElasticsearch(object):
             Defaults to no timeout.
         :arg search_type: Search operation type  Valid choices:
             query_then_fetch, dfs_query_then_fetch
+        :arg size: Deprecated, please use `max_docs` instead
         :arg slices: The number of slices this task should be divided
             into. Defaults to 1, meaning the task isn't sliced into subtasks. Can be
             set to `auto`.  Default: 1
@@ -715,7 +728,7 @@ class AsyncElasticsearch(object):
 
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_delete_by_query"),
+            _make_path(index, doc_type, "_delete_by_query"),
             params=params,
             headers=headers,
             body=body,
@@ -773,7 +786,7 @@ class AsyncElasticsearch(object):
         "version",
         "version_type",
     )
-    async def exists(self, index, id, params=None, headers=None):
+    async def exists(self, index, id, doc_type=None, params=None, headers=None):
         """
         Returns information about whether a document exists in an index.
 
@@ -781,6 +794,8 @@ class AsyncElasticsearch(object):
 
         :arg index: The name of the index
         :arg id: The document ID
+        :arg doc_type: The type of the document (use `_all` to fetch the
+            first document matching the ID across all types)
         :arg _source: True or false to return the _source field or not,
             or a list of fields to return
         :arg _source_excludes: A list of fields to exclude from the
@@ -798,14 +813,14 @@ class AsyncElasticsearch(object):
             return in the response
         :arg version: Explicit version number for concurrency control
         :arg version_type: Specific version type  Valid choices:
-            internal, external, external_gte
+            internal, external, external_gte, force
         """
         for param in (index, id):
             if param in SKIP_IN_PATH:
                 raise ValueError("Empty value passed for a required argument.")
 
         return await self.transport.perform_request(
-            "HEAD", _make_path(index, "_doc", id), params=params, headers=headers
+            "HEAD", _make_path(index, doc_type, id), params=params, headers=headers
         )
 
     @query_params(
@@ -844,7 +859,7 @@ class AsyncElasticsearch(object):
         :arg routing: Specific routing value
         :arg version: Explicit version number for concurrency control
         :arg version_type: Specific version type  Valid choices:
-            internal, external, external_gte
+            internal, external, external_gte, force
         """
         for param in (index, id):
             if param in SKIP_IN_PATH:
@@ -871,7 +886,9 @@ class AsyncElasticsearch(object):
         "routing",
         "stored_fields",
     )
-    async def explain(self, index, id, body=None, params=None, headers=None):
+    async def explain(
+        self, index, id, body=None, doc_type=None, params=None, headers=None
+    ):
         """
         Returns information about why a specific matches (or doesn't match) a query.
 
@@ -880,6 +897,7 @@ class AsyncElasticsearch(object):
         :arg index: The name of the index
         :arg id: The document ID
         :arg body: The query definition using the Query DSL
+        :arg doc_type: The type of the document
         :arg _source: True or false to return the _source field or not,
             or a list of fields to return
         :arg _source_excludes: A list of fields to exclude from the
@@ -908,7 +926,7 @@ class AsyncElasticsearch(object):
 
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_explain", id),
+            _make_path(index, doc_type, id, "_explain"),
             params=params,
             headers=headers,
             body=body,
@@ -963,7 +981,7 @@ class AsyncElasticsearch(object):
         "version",
         "version_type",
     )
-    async def get(self, index, id, params=None, headers=None):
+    async def get(self, index, id, doc_type=None, params=None, headers=None):
         """
         Returns a document.
 
@@ -971,6 +989,8 @@ class AsyncElasticsearch(object):
 
         :arg index: The name of the index
         :arg id: The document ID
+        :arg doc_type: The type of the document (use `_all` to fetch the
+            first document matching the ID across all types)
         :arg _source: True or false to return the _source field or not,
             or a list of fields to return
         :arg _source_excludes: A list of fields to exclude from the
@@ -988,14 +1008,14 @@ class AsyncElasticsearch(object):
             return in the response
         :arg version: Explicit version number for concurrency control
         :arg version_type: Specific version type  Valid choices:
-            internal, external, external_gte
+            internal, external, external_gte, force
         """
         for param in (index, id):
             if param in SKIP_IN_PATH:
                 raise ValueError("Empty value passed for a required argument.")
 
         return await self.transport.perform_request(
-            "GET", _make_path(index, "_doc", id), params=params, headers=headers
+            "GET", _make_path(index, doc_type, id), params=params, headers=headers
         )
 
     @query_params("master_timeout")
@@ -1026,7 +1046,7 @@ class AsyncElasticsearch(object):
         "version",
         "version_type",
     )
-    async def get_source(self, index, id, params=None, headers=None):
+    async def get_source(self, index, id, doc_type=None, params=None, headers=None):
         """
         Returns the source of a document.
 
@@ -1034,6 +1054,8 @@ class AsyncElasticsearch(object):
 
         :arg index: The name of the index
         :arg id: The document ID
+        :arg doc_type: The type of the document; deprecated and optional
+            starting with 7.0
         :arg _source: True or false to return the _source field or not,
             or a list of fields to return
         :arg _source_excludes: A list of fields to exclude from the
@@ -1049,14 +1071,17 @@ class AsyncElasticsearch(object):
         :arg routing: Specific routing value
         :arg version: Explicit version number for concurrency control
         :arg version_type: Specific version type  Valid choices:
-            internal, external, external_gte
+            internal, external, external_gte, force
         """
         for param in (index, id):
             if param in SKIP_IN_PATH:
                 raise ValueError("Empty value passed for a required argument.")
 
         return await self.transport.perform_request(
-            "GET", _make_path(index, "_source", id), params=params, headers=headers
+            "GET",
+            _make_path(index, doc_type, id, "_source"),
+            params=params,
+            headers=headers,
         )
 
     @query_params(
@@ -1069,16 +1094,17 @@ class AsyncElasticsearch(object):
         "routing",
         "stored_fields",
     )
-    async def mget(self, body, index=None, params=None, headers=None):
+    async def mget(self, body, index=None, doc_type=None, params=None, headers=None):
         """
         Allows to get multiple documents in one request.
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/master/docs-multi-get.html>`_
 
         :arg body: Document identifiers; can be either `docs`
-            (containing full document information) or `ids` (when index is provided
-            in the URL.
+            (containing full document information) or `ids` (when index and type is
+            provided in the URL.
         :arg index: The name of the index
+        :arg doc_type: The type of the document
         :arg _source: True or false to return the _source field or not,
             or a list of fields to return
         :arg _source_excludes: A list of fields to exclude from the
@@ -1100,7 +1126,7 @@ class AsyncElasticsearch(object):
 
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_mget"),
+            _make_path(index, doc_type, "_mget"),
             params=params,
             headers=headers,
             body=body,
@@ -1115,7 +1141,7 @@ class AsyncElasticsearch(object):
         "search_type",
         "typed_keys",
     )
-    async def msearch(self, body, index=None, params=None, headers=None):
+    async def msearch(self, body, index=None, doc_type=None, params=None, headers=None):
         """
         Allows to execute several search operations in one request.
 
@@ -1125,6 +1151,8 @@ class AsyncElasticsearch(object):
             definition pairs), separated by newlines
         :arg index: A comma-separated list of index names to use as
             default
+        :arg doc_type: A comma-separated list of document types to use
+            as default
         :arg ccs_minimize_roundtrips: Indicates whether network round-
             trips should be minimized as part of cross-cluster search requests
             execution  Default: true
@@ -1144,7 +1172,8 @@ class AsyncElasticsearch(object):
         :arg rest_total_hits_as_int: Indicates whether hits.total should
             be rendered as an integer or an object in the rest search response
         :arg search_type: Search operation type  Valid choices:
-            query_then_fetch, dfs_query_then_fetch
+            query_then_fetch, query_and_fetch, dfs_query_then_fetch,
+            dfs_query_and_fetch
         :arg typed_keys: Specify whether aggregation and suggester names
             should be prefixed by their respective types in the response
         """
@@ -1154,7 +1183,7 @@ class AsyncElasticsearch(object):
         body = _bulk_body(self.transport.serializer, body)
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_msearch"),
+            _make_path(index, doc_type, "_msearch"),
             params=params,
             headers=headers,
             body=body,
@@ -1382,7 +1411,6 @@ class AsyncElasticsearch(object):
         "ignore_unavailable",
         "lenient",
         "max_concurrent_shard_requests",
-        "min_compatible_shard_node",
         "pre_filter_shard_size",
         "preference",
         "q",
@@ -1407,7 +1435,9 @@ class AsyncElasticsearch(object):
         "typed_keys",
         "version",
     )
-    async def search(self, body=None, index=None, params=None, headers=None):
+    async def search(
+        self, body=None, index=None, doc_type=None, params=None, headers=None
+    ):
         """
         Returns results matching a query.
 
@@ -1416,6 +1446,8 @@ class AsyncElasticsearch(object):
         :arg body: The search definition using the Query DSL
         :arg index: A comma-separated list of index names to search; use
             `_all` or empty string to perform the operation on all indices
+        :arg doc_type: A comma-separated list of document types to
+            search; leave empty to perform the operation on all types
         :arg _source: True or false to return the _source field or not,
             or a list of fields to return
         :arg _source_excludes: A list of fields to exclude from the
@@ -1461,9 +1493,6 @@ class AsyncElasticsearch(object):
             shard requests per node this search executes concurrently. This value
             should be used to limit the impact of the search on the cluster in order
             to limit the number of concurrent shard requests  Default: 5
-        :arg min_compatible_shard_node: The minimum compatible version
-            that all shards involved in search should have for this request to be
-            successful
         :arg pre_filter_shard_size: A threshold that enforces a pre-
             filter roundtrip to prefilter search shards based on query rewriting if
             the number of shards the search request expands to exceeds the
@@ -1504,8 +1533,7 @@ class AsyncElasticsearch(object):
         :arg track_scores: Whether to calculate and return scores even
             if they are not used for sorting
         :arg track_total_hits: Indicate if the number of documents that
-            match the query should be tracked. A number can also be specified, to
-            accurately track the total hit count up to the number.
+            match the query should be tracked
         :arg typed_keys: Specify whether aggregation and suggester names
             should be prefixed by their respective types in the response
         :arg version: Specify whether to return document version as part
@@ -1517,7 +1545,7 @@ class AsyncElasticsearch(object):
 
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_search"),
+            _make_path(index, doc_type, "_search"),
             params=params,
             headers=headers,
             body=body,
@@ -1686,7 +1714,9 @@ class AsyncElasticsearch(object):
         "search_type",
         "typed_keys",
     )
-    async def msearch_template(self, body, index=None, params=None, headers=None):
+    async def msearch_template(
+        self, body, index=None, doc_type=None, params=None, headers=None
+    ):
         """
         Allows to execute several search template operations in one request.
 
@@ -1696,6 +1726,8 @@ class AsyncElasticsearch(object):
             definition pairs), separated by newlines
         :arg index: A comma-separated list of index names to use as
             default
+        :arg doc_type: A comma-separated list of document types to use
+            as default
         :arg ccs_minimize_roundtrips: Indicates whether network round-
             trips should be minimized as part of cross-cluster search requests
             execution  Default: true
@@ -1704,7 +1736,8 @@ class AsyncElasticsearch(object):
         :arg rest_total_hits_as_int: Indicates whether hits.total should
             be rendered as an integer or an object in the rest search response
         :arg search_type: Search operation type  Valid choices:
-            query_then_fetch, dfs_query_then_fetch
+            query_then_fetch, query_and_fetch, dfs_query_then_fetch,
+            dfs_query_and_fetch
         :arg typed_keys: Specify whether aggregation and suggester names
             should be prefixed by their respective types in the response
         """
@@ -1714,7 +1747,7 @@ class AsyncElasticsearch(object):
         body = _bulk_body(self.transport.serializer, body)
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_msearch", "template"),
+            _make_path(index, doc_type, "_msearch", "template"),
             params=params,
             headers=headers,
             body=body,
@@ -1734,7 +1767,9 @@ class AsyncElasticsearch(object):
         "version",
         "version_type",
     )
-    async def mtermvectors(self, body=None, index=None, params=None, headers=None):
+    async def mtermvectors(
+        self, body=None, index=None, doc_type=None, params=None, headers=None
+    ):
         """
         Returns multiple termvectors in one request.
 
@@ -1744,6 +1779,7 @@ class AsyncElasticsearch(object):
             parameters per document here. You must at least provide a list of
             document ids. See documentation.
         :arg index: The index in which the document resides.
+        :arg doc_type: The type of the document.
         :arg field_statistics: Specifies if document count, sum of
             document frequencies and sum of total term frequencies should be
             returned. Applies to all returned documents unless otherwise specified
@@ -1774,11 +1810,11 @@ class AsyncElasticsearch(object):
             unless otherwise specified in body "params" or "docs".
         :arg version: Explicit version number for concurrency control
         :arg version_type: Specific version type  Valid choices:
-            internal, external, external_gte
+            internal, external, external_gte, force
         """
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_mtermvectors"),
+            _make_path(index, doc_type, "_mtermvectors"),
             params=params,
             headers=headers,
             body=body,
@@ -1799,7 +1835,9 @@ class AsyncElasticsearch(object):
         "search_type",
         "typed_keys",
     )
-    async def search_template(self, body, index=None, params=None, headers=None):
+    async def search_template(
+        self, body, index=None, doc_type=None, params=None, headers=None
+    ):
         """
         Allows to use the Mustache language to pre-render a search definition.
 
@@ -1808,6 +1846,8 @@ class AsyncElasticsearch(object):
         :arg body: The search definition template and its params
         :arg index: A comma-separated list of index names to search; use
             `_all` or empty string to perform the operation on all indices
+        :arg doc_type: A comma-separated list of document types to
+            search; leave empty to perform the operation on all types
         :arg allow_no_indices: Whether to ignore if a wildcard indices
             expression resolves into no concrete indices. (This includes `_all`
             string or when no indices have been specified)
@@ -1832,7 +1872,8 @@ class AsyncElasticsearch(object):
         :arg scroll: Specify how long a consistent view of the index
             should be maintained for scrolled search
         :arg search_type: Search operation type  Valid choices:
-            query_then_fetch, dfs_query_then_fetch
+            query_then_fetch, query_and_fetch, dfs_query_then_fetch,
+            dfs_query_and_fetch
         :arg typed_keys: Specify whether aggregation and suggester names
             should be prefixed by their respective types in the response
         """
@@ -1841,7 +1882,7 @@ class AsyncElasticsearch(object):
 
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_search", "template"),
+            _make_path(index, doc_type, "_search", "template"),
             params=params,
             headers=headers,
             body=body,
@@ -1860,7 +1901,9 @@ class AsyncElasticsearch(object):
         "version",
         "version_type",
     )
-    async def termvectors(self, index, body=None, id=None, params=None, headers=None):
+    async def termvectors(
+        self, index, body=None, doc_type=None, id=None, params=None, headers=None
+    ):
         """
         Returns information and statistics about terms in the fields of a particular
         document.
@@ -1870,6 +1913,7 @@ class AsyncElasticsearch(object):
         :arg index: The index in which the document resides.
         :arg body: Define parameters and or supply a document to get
             termvectors for. See documentation.
+        :arg doc_type: The type of the document.
         :arg id: The id of the document, when not specified a doc param
             should be supplied.
         :arg field_statistics: Specifies if document count, sum of
@@ -1891,14 +1935,14 @@ class AsyncElasticsearch(object):
             document frequency should be returned.
         :arg version: Explicit version number for concurrency control
         :arg version_type: Specific version type  Valid choices:
-            internal, external, external_gte
+            internal, external, external_gte, force
         """
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_termvectors", id),
+            _make_path(index, doc_type, id, "_termvectors"),
             params=params,
             headers=headers,
             body=body,
@@ -1930,6 +1974,7 @@ class AsyncElasticsearch(object):
         "scroll_size",
         "search_timeout",
         "search_type",
+        "size",
         "slices",
         "sort",
         "stats",
@@ -1940,7 +1985,9 @@ class AsyncElasticsearch(object):
         "wait_for_active_shards",
         "wait_for_completion",
     )
-    async def update_by_query(self, index, body=None, params=None, headers=None):
+    async def update_by_query(
+        self, index, body=None, doc_type=None, params=None, headers=None
+    ):
         """
         Performs an update on every document in the index without changing the source,
         for example to pick up a mapping change.
@@ -1950,6 +1997,8 @@ class AsyncElasticsearch(object):
         :arg index: A comma-separated list of index names to search; use
             `_all` or empty string to perform the operation on all indices
         :arg body: The search definition using the Query DSL
+        :arg doc_type: A comma-separated list of document types to
+            search; leave empty to perform the operation on all types
         :arg _source: True or false to return the _source field or not,
             or a list of fields to return
         :arg _source_excludes: A list of fields to exclude from the
@@ -1997,6 +2046,7 @@ class AsyncElasticsearch(object):
             Defaults to no timeout.
         :arg search_type: Search operation type  Valid choices:
             query_then_fetch, dfs_query_then_fetch
+        :arg size: Deprecated, please use `max_docs` instead
         :arg slices: The number of slices this task should be divided
             into. Defaults to 1, meaning the task isn't sliced into subtasks. Can be
             set to `auto`.  Default: 1
@@ -2030,47 +2080,8 @@ class AsyncElasticsearch(object):
 
         return await self.transport.perform_request(
             "POST",
-            _make_path(index, "_update_by_query"),
+            _make_path(index, doc_type, "_update_by_query"),
             params=params,
             headers=headers,
             body=body,
-        )
-
-    @query_params()
-    async def close_point_in_time(self, body=None, params=None, headers=None):
-        """
-        Close a point in time
-
-        `<https://www.elastic.co/guide/en/elasticsearch/reference/master/point-in-time-api.html>`_
-
-        :arg body: a point-in-time id to close
-        """
-        return await self.transport.perform_request(
-            "DELETE", "/_pit", params=params, headers=headers, body=body
-        )
-
-    @query_params(
-        "expand_wildcards", "ignore_unavailable", "keep_alive", "preference", "routing"
-    )
-    async def open_point_in_time(self, index=None, params=None, headers=None):
-        """
-        Open a point in time that can be used in subsequent searches
-
-        `<https://www.elastic.co/guide/en/elasticsearch/reference/master/point-in-time-api.html>`_
-
-        :arg index: A comma-separated list of index names to open point
-            in time; use `_all` or empty string to perform the operation on all
-            indices
-        :arg expand_wildcards: Whether to expand wildcard expression to
-            concrete indices that are open, closed or both.  Valid choices: open,
-            closed, hidden, none, all  Default: open
-        :arg ignore_unavailable: Whether specified concrete indices
-            should be ignored when unavailable (missing or closed)
-        :arg keep_alive: Specific the time to live for the point in time
-        :arg preference: Specify the node or shard the operation should
-            be performed on (default: random)
-        :arg routing: Specific routing value
-        """
-        return await self.transport.perform_request(
-            "POST", _make_path(index, "_pit"), params=params, headers=headers
         )

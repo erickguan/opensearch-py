@@ -28,8 +28,8 @@ class NodesClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/master/secure-settings.html#reloadable-secure-settings>`_
 
-        :arg body: An object containing the password for the
-            elasticsearch keystore
+        :arg body: An object containing the password for the opensearch
+            keystore
         :arg node_id: A comma-separated list of node IDs to span the
             reload/reinit call. Should stay empty because reloading usually involves
             all cluster nodes.
@@ -129,7 +129,6 @@ class NodesClient(NamespacedClient):
         "fields",
         "groups",
         "include_segment_file_sizes",
-        "include_unloaded_segments",
         "level",
         "timeout",
         "types",
@@ -153,10 +152,10 @@ class NodesClient(NamespacedClient):
             metric to the specific index metrics. Isn't used if `indices` (or `all`)
             metric isn't specified.  Valid choices: _all, completion, docs,
             fielddata, query_cache, flush, get, indexing, merge, request_cache,
-            refresh, search, segments, store, warmer, bulk
-        :arg completion_fields: A comma-separated list of fields for the
-            `completion` index metric (supports wildcards)
-        :arg fielddata_fields: A comma-separated list of fields for the
+            refresh, search, segments, store, warmer, suggest
+        :arg completion_fields: A comma-separated list of fields for
+            `fielddata` and `suggest` index metric (supports wildcards)
+        :arg fielddata_fields: A comma-separated list of fields for
             `fielddata` index metric (supports wildcards)
         :arg fields: A comma-separated list of fields for `fielddata`
             and `completion` index metric (supports wildcards)
@@ -165,9 +164,6 @@ class NodesClient(NamespacedClient):
         :arg include_segment_file_sizes: Whether to report the
             aggregated disk usage of each one of the Lucene index files (only
             applies if segment stats are requested)
-        :arg include_unloaded_segments: If set to true segment stats
-            will include stats for segments that are not currently loaded into
-            memory
         :arg level: Return indices stats aggregated at index, node or
             shard level  Valid choices: indices, node, shards  Default: node
         :arg timeout: Explicit operation timeout

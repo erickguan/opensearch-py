@@ -143,6 +143,7 @@ class CatClient(NamespacedClient):
         "health",
         "help",
         "include_unloaded_segments",
+        "local",
         "master_timeout",
         "pri",
         "s",
@@ -173,6 +174,8 @@ class CatClient(NamespacedClient):
         :arg include_unloaded_segments: If set to true segment stats
             will include stats for segments that are not currently loaded into
             memory
+        :arg local: Return local information, do not retrieve the state
+            from master node (default: false)
         :arg master_timeout: Explicit operation timeout for connection
             to master node
         :arg pri: Set to true to return stats only for primary shards
@@ -215,7 +218,7 @@ class CatClient(NamespacedClient):
         "full_id",
         "h",
         "help",
-        "include_unloaded_segments",
+        "local",
         "master_timeout",
         "s",
         "time",
@@ -235,9 +238,8 @@ class CatClient(NamespacedClient):
             version (default: false)
         :arg h: Comma-separated list of column names to display
         :arg help: Return help information
-        :arg include_unloaded_segments: If set to true segment stats
-            will include stats for segments that are not currently loaded into
-            memory
+        :arg local: Calculate the selected nodes using the local cluster
+            state rather than the state from master node (default: false)
         :arg master_timeout: Explicit operation timeout for connection
             to master node
         :arg s: Comma-separated list of column names or column aliases
@@ -281,7 +283,9 @@ class CatClient(NamespacedClient):
             "GET", _make_path("_cat", "recovery", index), params=params, headers=headers
         )
 
-    @query_params("bytes", "format", "h", "help", "master_timeout", "s", "time", "v")
+    @query_params(
+        "bytes", "format", "h", "help", "local", "master_timeout", "s", "time", "v"
+    )
     async def shards(self, index=None, params=None, headers=None):
         """
         Provides a detailed view of shard allocation on nodes.
@@ -296,6 +300,8 @@ class CatClient(NamespacedClient):
             yaml
         :arg h: Comma-separated list of column names to display
         :arg help: Return help information
+        :arg local: Return local information, do not retrieve the state
+            from master node (default: false)
         :arg master_timeout: Explicit operation timeout for connection
             to master node
         :arg s: Comma-separated list of column names or column aliases
@@ -356,7 +362,7 @@ class CatClient(NamespacedClient):
             "GET", "/_cat/pending_tasks", params=params, headers=headers
         )
 
-    @query_params("format", "h", "help", "local", "master_timeout", "s", "time", "v")
+    @query_params("format", "h", "help", "local", "master_timeout", "s", "size", "v")
     async def thread_pool(self, thread_pool_patterns=None, params=None, headers=None):
         """
         Returns cluster-wide thread pool statistics per node. By default the active,
@@ -376,8 +382,8 @@ class CatClient(NamespacedClient):
             to master node
         :arg s: Comma-separated list of column names or column aliases
             to sort by
-        :arg time: The unit in which to display time values  Valid
-            choices: d, h, m, s, ms, micros, nanos
+        :arg size: The multiplier in which to display values  Valid
+            choices: , k, m, g, t, p
         :arg v: Verbose mode. Display column headers
         """
         return await self.transport.perform_request(
@@ -414,9 +420,7 @@ class CatClient(NamespacedClient):
             headers=headers,
         )
 
-    @query_params(
-        "format", "h", "help", "include_bootstrap", "local", "master_timeout", "s", "v"
-    )
+    @query_params("format", "h", "help", "local", "master_timeout", "s", "v")
     async def plugins(self, params=None, headers=None):
         """
         Returns information about installed plugins across nodes node.
@@ -427,8 +431,6 @@ class CatClient(NamespacedClient):
             yaml
         :arg h: Comma-separated list of column names to display
         :arg help: Return help information
-        :arg include_bootstrap: Include bootstrap plugins in the
-            response
         :arg local: Return local information, do not retrieve the state
             from master node (default: false)
         :arg master_timeout: Explicit operation timeout for connection
@@ -538,11 +540,6 @@ class CatClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/master/tasks.html>`_
 
-        .. warning::
-
-            This API is **experimental** so may include breaking changes
-            or be removed in a future version
-
         :arg actions: A comma-separated list of actions that should be
             returned. Leave empty to return all.
         :arg detailed: Return detailed task information (default: false)
@@ -587,196 +584,4 @@ class CatClient(NamespacedClient):
         """
         return await self.transport.perform_request(
             "GET", _make_path("_cat", "templates", name), params=params, headers=headers
-        )
-
-    @query_params("allow_no_match", "bytes", "format", "h", "help", "s", "time", "v")
-    async def ml_data_frame_analytics(self, id=None, params=None, headers=None):
-        """
-        Gets configuration and usage information about data frame analytics jobs.
-
-        `<https://www.elastic.co/guide/en/elasticsearch/reference/master/cat-dfanalytics.html>`_
-
-        :arg id: The ID of the data frame analytics to fetch
-        :arg allow_no_match: Whether to ignore if a wildcard expression
-            matches no configs. (This includes `_all` string or when no configs have
-            been specified)
-        :arg bytes: The unit in which to display byte values  Valid
-            choices: b, k, kb, m, mb, g, gb, t, tb, p, pb
-        :arg format: a short version of the Accept header, e.g. json,
-            yaml
-        :arg h: Comma-separated list of column names to display
-        :arg help: Return help information
-        :arg s: Comma-separated list of column names or column aliases
-            to sort by
-        :arg time: The unit in which to display time values  Valid
-            choices: d, h, m, s, ms, micros, nanos
-        :arg v: Verbose mode. Display column headers
-        """
-        return await self.transport.perform_request(
-            "GET",
-            _make_path("_cat", "ml", "data_frame", "analytics", id),
-            params=params,
-            headers=headers,
-        )
-
-    @query_params(
-        "allow_no_datafeeds", "allow_no_match", "format", "h", "help", "s", "time", "v"
-    )
-    async def ml_datafeeds(self, datafeed_id=None, params=None, headers=None):
-        """
-        Gets configuration and usage information about datafeeds.
-
-        `<https://www.elastic.co/guide/en/elasticsearch/reference/master/cat-datafeeds.html>`_
-
-        :arg datafeed_id: The ID of the datafeeds stats to fetch
-        :arg allow_no_datafeeds: Whether to ignore if a wildcard
-            expression matches no datafeeds. (This includes `_all` string or when no
-            datafeeds have been specified)
-        :arg allow_no_match: Whether to ignore if a wildcard expression
-            matches no datafeeds. (This includes `_all` string or when no datafeeds
-            have been specified)
-        :arg format: a short version of the Accept header, e.g. json,
-            yaml
-        :arg h: Comma-separated list of column names to display
-        :arg help: Return help information
-        :arg s: Comma-separated list of column names or column aliases
-            to sort by
-        :arg time: The unit in which to display time values  Valid
-            choices: d, h, m, s, ms, micros, nanos
-        :arg v: Verbose mode. Display column headers
-        """
-        return await self.transport.perform_request(
-            "GET",
-            _make_path("_cat", "ml", "datafeeds", datafeed_id),
-            params=params,
-            headers=headers,
-        )
-
-    @query_params(
-        "allow_no_jobs",
-        "allow_no_match",
-        "bytes",
-        "format",
-        "h",
-        "help",
-        "s",
-        "time",
-        "v",
-    )
-    async def ml_jobs(self, job_id=None, params=None, headers=None):
-        """
-        Gets configuration and usage information about anomaly detection jobs.
-
-        `<https://www.elastic.co/guide/en/elasticsearch/reference/master/cat-anomaly-detectors.html>`_
-
-        :arg job_id: The ID of the jobs stats to fetch
-        :arg allow_no_jobs: Whether to ignore if a wildcard expression
-            matches no jobs. (This includes `_all` string or when no jobs have been
-            specified)
-        :arg allow_no_match: Whether to ignore if a wildcard expression
-            matches no jobs. (This includes `_all` string or when no jobs have been
-            specified)
-        :arg bytes: The unit in which to display byte values  Valid
-            choices: b, k, kb, m, mb, g, gb, t, tb, p, pb
-        :arg format: a short version of the Accept header, e.g. json,
-            yaml
-        :arg h: Comma-separated list of column names to display
-        :arg help: Return help information
-        :arg s: Comma-separated list of column names or column aliases
-            to sort by
-        :arg time: The unit in which to display time values  Valid
-            choices: d, h, m, s, ms, micros, nanos
-        :arg v: Verbose mode. Display column headers
-        """
-        return await self.transport.perform_request(
-            "GET",
-            _make_path("_cat", "ml", "anomaly_detectors", job_id),
-            params=params,
-            headers=headers,
-        )
-
-    @query_params(
-        "allow_no_match",
-        "bytes",
-        "format",
-        "from_",
-        "h",
-        "help",
-        "s",
-        "size",
-        "time",
-        "v",
-    )
-    async def ml_trained_models(self, model_id=None, params=None, headers=None):
-        """
-        Gets configuration and usage information about inference trained models.
-
-        `<https://www.elastic.co/guide/en/elasticsearch/reference/master/cat-trained-model.html>`_
-
-        :arg model_id: The ID of the trained models stats to fetch
-        :arg allow_no_match: Whether to ignore if a wildcard expression
-            matches no trained models. (This includes `_all` string or when no
-            trained models have been specified)  Default: True
-        :arg bytes: The unit in which to display byte values  Valid
-            choices: b, k, kb, m, mb, g, gb, t, tb, p, pb
-        :arg format: a short version of the Accept header, e.g. json,
-            yaml
-        :arg from\\_: skips a number of trained models
-        :arg h: Comma-separated list of column names to display
-        :arg help: Return help information
-        :arg s: Comma-separated list of column names or column aliases
-            to sort by
-        :arg size: specifies a max number of trained models to get
-            Default: 100
-        :arg time: The unit in which to display time values  Valid
-            choices: d, h, m, s, ms, micros, nanos
-        :arg v: Verbose mode. Display column headers
-        """
-        # from is a reserved word so it cannot be used, use from_ instead
-        if "from_" in params:
-            params["from"] = params.pop("from_")
-
-        return await self.transport.perform_request(
-            "GET",
-            _make_path("_cat", "ml", "trained_models", model_id),
-            params=params,
-            headers=headers,
-        )
-
-    @query_params(
-        "allow_no_match", "format", "from_", "h", "help", "s", "size", "time", "v"
-    )
-    async def transforms(self, transform_id=None, params=None, headers=None):
-        """
-        Gets configuration and usage information about transforms.
-
-        `<https://www.elastic.co/guide/en/elasticsearch/reference/master/cat-transforms.html>`_
-
-        :arg transform_id: The id of the transform for which to get
-            stats. '_all' or '*' implies all transforms
-        :arg allow_no_match: Whether to ignore if a wildcard expression
-            matches no transforms. (This includes `_all` string or when no
-            transforms have been specified)
-        :arg format: a short version of the Accept header, e.g. json,
-            yaml
-        :arg from\\_: skips a number of transform configs, defaults to 0
-        :arg h: Comma-separated list of column names to display
-        :arg help: Return help information
-        :arg s: Comma-separated list of column names or column aliases
-            to sort by
-        :arg size: specifies a max number of transforms to get, defaults
-            to 100
-        :arg time: The unit in which to display time values  Valid
-            choices: d, h, m, s, ms, micros, nanos
-        :arg v: Verbose mode. Display column headers
-        """
-        # from is a reserved word so it cannot be used, use from_ instead
-        if "from_" in params:
-            params["from"] = params.pop("from_")
-
-        return await self.transport.perform_request(
-            "GET",
-            _make_path("_cat", "transforms", transform_id),
-            params=params,
-            headers=headers,
         )
