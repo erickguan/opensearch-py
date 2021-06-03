@@ -25,6 +25,7 @@ import re
 import shutil
 import sys
 import tempfile
+from typing import Any, Generator, ItemsView, Optional, Text, TypedDict, Union, cast
 import zipfile
 from functools import lru_cache
 from itertools import chain
@@ -65,83 +66,67 @@ jinja_env = Environment(
 )
 
 
-def blacken(filename):
+def blacken(filename: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(black.main, [str(filename)])
     assert result.exit_code == 0, result.output
 
 
 @lru_cache()
-def is_valid_url(url):
+def is_valid_url(url) -> bool:
     return 200 <= http.request("HEAD", url).status < 400
 
 
-class Module:
-    def __init__(self, namespace, is_pyi=False):
-        self.namespace = namespace
-        self.is_pyi = is_pyi
-        self._apis = []
-        self.parse_orig()
+APIUrlPathPartDefinition = Union[str, bool]
 
-        if not is_pyi:
-            self.pyi = Module(namespace, is_pyi=True)
-            self.pyi.orders = self.orders[:]
 
-    def add(self, api):
-        self._apis.append(api)
+class _APIParameter(TypedDict):
+    required: bool  # not presented in JSON but construct in build time
 
-    def parse_orig(self):
-        self.orders = []
-        self.header = "class C:"
-        if os.path.exists(self.filepath):
-            with open(self.filepath) as f:
-                content = f.read()
-                header_lines = []
-                for line in content.split("\n"):
-                    header_lines.append(line)
-                    if line == SEPARATOR:
-                        break
-                # no separator found
-                else:
-                    header_lines = []
-                    for line in content.split("\n"):
-                        header_lines.append(line)
-                        if line.startswith("class"):
-                            break
-                self.header = "\n".join(header_lines)
-                self.orders = re.findall(
-                    r"\n    (?:async )?def ([a-z_]+)\(", content, re.MULTILINE
-                )
 
-    def _position(self, api):
-        try:
-            return self.orders.index(api.name)
-        except ValueError:
-            return len(self.orders)
+class APIParameter(_APIParameter, total=False):
+    default: Any
+    type: str
+    description: str
+    options: list[Any]
 
-    def sort(self):
-        self._apis.sort(key=self._position)
 
-    def dump(self):
-        self.sort()
-        with open(self.filepath, "w") as f:
-            f.write(self.header)
-            for api in self._apis:
-                f.write(api.to_python())
+APIUrlPathParts = dict[str, APIParameter]
 
-        if not self.is_pyi:
-            self.pyi.dump()
 
-    @property
-    def filepath(self):
-        return (
-            CODE_ROOT
-            / f"elasticsearch/_async/client/{self.namespace}.py{'i' if self.is_pyi else ''}"
-        )
+class _APIUrlPathTotal(TypedDict):
+    path: str
+    methods: list[str]
+
+
+class APIUrlPath(_APIUrlPathTotal, total=False):
+    parts: APIUrlPathParts
+
+
+class APIUrl(TypedDict):
+    paths: list[APIUrlPath]
+
+
+class APIDocumentation(TypedDict, total=False):
+    description: str
+    url: str
+
+
+class _APIDefinitionTotal(TypedDict):
+    documentation: Union[APIDocumentation, str]
+    url: APIUrl
+
+
+class APIDefinition(_APIDefinitionTotal, total=False):
+    stability: str
+    params: dict[str, APIParameter]
+    body: APIParameter
 
 
 class API:
-    def __init__(self, namespace, name, definition, is_pyi=False):
+    def __init__(
+        self, namespace: str, name: str, definition: APIDefinition, is_pyi: bool = False
+    ):
         self.namespace = namespace
         self.name = name
         self.is_pyi = is_pyi
@@ -186,24 +171,23 @@ class API:
                     print(f"URL {revised_url!r}, falling back on {self.doc_url!r}")
 
     @property
-    def all_parts(self):
-        parts = {}
+    def all_parts(self) -> dict[str, APIParameter]:
+        parts: APIUrlPathParts = {}
         for url in self._def["url"]["paths"]:
             parts.update(url.get("parts", {}))
 
-        for p in parts:
+        for p in parts.keys():
             parts[p]["required"] = all(
                 p in url.get("parts", {}) for url in self._def["url"]["paths"]
             )
             parts[p]["type"] = "Any"
-
         for k, sub in SUBSTITUTIONS.items():
             if k in parts:
                 parts[sub] = parts.pop(k)
 
         dynamic, components = self.url_parts
 
-        def ind(item):
+        def ind(item: tuple[str, APIParameter]) -> int:
             try:
                 return components.index(item[0])
             except ValueError:
@@ -213,7 +197,7 @@ class API:
         return parts
 
     @property
-    def params(self):
+    def params(self) -> chain[tuple[str, APIParameter]]:
         parts = self.all_parts
         params = self._def.get("params", {})
         return chain(
@@ -228,8 +212,8 @@ class API:
         )
 
     @property
-    def body(self):
-        b = self._def.get("body", {})
+    def body(self) -> APIParameter:
+        b: APIParameter = self._def.get("body", {})
         if b:
             b.setdefault("required", False)
         return b
@@ -243,7 +227,7 @@ class API:
         )
 
     @property
-    def all_func_params(self):
+    def all_func_params(self) -> list[str]:
         """Parameters that will be in the '@query_params' decorator list
         and parameters that will be in the function signature.
         This doesn't include
@@ -256,14 +240,14 @@ class API:
         return params
 
     @property
-    def path(self):
+    def path(self) -> APIUrlPath:
         return max(
             (path for path in self._def["url"]["paths"]),
             key=lambda p: len(re.findall(r"\{([^}]+)\}", p["path"])),
         )
 
     @property
-    def method(self):
+    def method(self) -> str:
         # To adhere to the HTTP RFC we shouldn't send
         # bodies in GET requests.
         default_method = self.path["methods"][0]
@@ -272,14 +256,14 @@ class API:
         return default_method
 
     @property
-    def url_parts(self):
+    def url_parts(self) -> tuple[bool, Union[str, list[str]]]:
         path = self.path["path"]
 
         dynamic = "{" in path
         if not dynamic:
             return dynamic, path
 
-        parts = []
+        parts: list[str] = []
         for part in path.split("/"):
             if not part:
                 continue
@@ -293,14 +277,14 @@ class API:
         return dynamic, parts
 
     @property
-    def required_parts(self):
+    def required_parts(self) -> list[str]:
         parts = self.all_parts
         required = [p for p in parts if parts[p]["required"]]
         if self.body.get("required"):
             required.append("body")
         return required
 
-    def to_python(self):
+    def to_python(self) -> str:
         if self.is_pyi:
             t = jinja_env.get_template("base_pyi")
         else:
@@ -316,8 +300,72 @@ class API:
         )
 
 
+class Module:
+    def __init__(self, namespace: str, is_pyi: bool = False):
+        self.namespace = namespace
+        self.is_pyi = is_pyi
+        self._apis: list[API] = []
+        self.parse_orig()
+
+        if not is_pyi:
+            self.pyi = Module(namespace, is_pyi=True)
+            self.pyi.orders = self.orders[:]
+
+    def add(self, api: API) -> None:
+        self._apis.append(api)
+
+    def parse_orig(self) -> None:
+        self.orders: list[str] = []
+        self.header = "class C:"
+        if os.path.exists(self.filepath):
+            with open(self.filepath) as f:
+                content = f.read()
+                header_lines = []
+                for line in content.split("\n"):
+                    header_lines.append(line)
+                    if line == SEPARATOR:
+                        break
+                # no separator found
+                else:
+                    header_lines = []
+                    for line in content.split("\n"):
+                        header_lines.append(line)
+                        if line.startswith("class"):
+                            break
+                self.header = "\n".join(header_lines)
+                self.orders = re.findall(
+                    r"\n    (?:async )?def ([a-z_]+)\(", content, re.MULTILINE
+                )
+
+    def _position(self, api: API) -> int:
+        try:
+            return self.orders.index(api.name)
+        except ValueError:
+            return len(self.orders)
+
+    def sort(self) -> None:
+        self._apis.sort(key=self._position)
+
+    def dump(self) -> None:
+        self.sort()
+        with open(self.filepath, "w") as f:
+            f.write(self.header)
+            for api in self._apis:
+                f.write(api.to_python())
+
+        if not self.is_pyi:
+            self.pyi.dump()
+
+    @property
+    def filepath(self) -> Path:
+        return (
+            CODE_ROOT
+            / f"elasticsearch/_async/client/{self.namespace}.py{'i' if self.is_pyi else ''}"
+        )
+
+
 @contextlib.contextmanager
-def download_artifact(version):
+def download_artifact(version: str) -> Generator[Path, None, None]:
     # Download the list of all artifacts for a version
     # and find the latest build URL for 'rest-resources-zip-*.zip'
     resp = http.request(
@@ -351,10 +399,13 @@ def download_artifact(version):
     shutil.rmtree(tmp)
 
 
-def read_modules(version):
-    modules = {}
+def read_modules(version) -> dict[str, Module]:
+    modules: dict[str, Module] = {}
 
-    path = Path(__file__).parent / "../../OpenSearch/rest-api-spec/src/main/resources/rest-api-spec/api/"
+    path = (
+        Path(__file__).parent
+        / "../../OpenSearch/rest-api-spec/src/main/resources/rest-api-spec/api/"
+    )
     for f in sorted(os.listdir(path)):
         name, ext = f.rsplit(".", 1)
 
@@ -381,7 +432,7 @@ def read_modules(version):
     return modules
 
 
-def dump_modules(modules):
+def dump_modules(modules: dict[str, Module]):
     for mod in modules.values():
         mod.dump()
 
